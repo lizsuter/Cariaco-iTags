@@ -28,13 +28,24 @@ capture.output(NMDSbac_full, file = "StatResults/NMDSbac_full.txt")
 plot(NMDSbac_full, display = "sites", cex=1.5,  xlim=c(-2.1, 2.2), ylim=c(-2, 2),cex.lab = 1.5, cex.axis = 1.5); 
 with(CatVar, points(NMDSbac_full, display = "sites", pch = 19, cex=1.5 ))
 box(lwd=2)
-# then identify groups by redox condition
+
+# Do an envfit of quantitative variables to the NMDS
+bacfullEnvFitNMDS<- envfit(NMDSbac_full~Depth+BeamAtt+O2+Temp+H2S+ParticulateS+NO3+NO2+NH4+Chemoautotrophy+BNP+MicrobialAbundance+FlagellateAbundance+VLP, permutations = 9999)
+capture.output(bacfullEnvFitNMDS, file = "StatResults/bacfullEnvFitNMDS.txt")
+# Envfit the qualitative variables (grouping variables)
+bacfullEnvFitNMDS2 <- envfit(NMDSbac_full~Size.Fraction+Season+OxCond, permutations = 9999)
+capture.output(bacfullEnvFitNMDS2, file = "StatResults/bacfullEnvFitNMDS2.txt")
+# The stats captured in the two text files above identify which geochemical and grouping variables correlate well 
+# with the projection of points in the ordination space. See documentation of envfit for more details.
+
+# Tdentify the groups of samples by redox condition
 ordispider(NMDSbac_full, OxCond, display="sites", label=TRUE, cex=1.5)
 # or size fraction
 ordispider(NMDSbac_full, Size.Fraction, display="sites", label=TRUE, cex =1.5)
 # or season
 ordispider(NMDSbac_full, Season, display="sites", label=TRUE, cex =1.5)
-# or overlay vectors of geochemical data. For example, O2 and sulfide
+
+# Overlay vectors of geochemical (quantitative) data. For example, O2 and sulfide
 bacfullEnvFitNMDSO2<- envfit(NMDSbac_full~O2, permutations = 9999)
 bacfullEnvFitNMDSH2S<- envfit(NMDSbac_full~H2S, permutations = 9999)
 par(lwd=2)
@@ -44,9 +55,28 @@ par(lwd=1) # need to reset par otherwise it will plot this thick in all future p
 
 
 
-## Next calcululate the ANOSIM statistics and SIMPER analyses to look at between-group differences
-bac_dis <- vegdist(AB_trans_trim) # Bray curtis dissimilarity matrix
+## Next calcululate the ANOSIM statistics and use SIMPER analyses to look at between-group differences
 
+# Caluculate Bray curtis dissimilarity matrix
+bac_dis <- vegdist(AB_trans_trim) 
+
+# ANOSIM
 anosim(bac_dis,Size.Fraction) # output is anosim statistics on dissimilarities between size fraction groups
 anosim(bac_dis,Season) # between season groups
 anosim(bac_dis,OxCond) # between redox condition groups
+# An r value close to "1.0"  suggests dissimilarity between groups while an R value close to "0" 
+# suggests an even distribution of high and low ranks within and between groups. R values below "0" 
+# suggest that dissimilarities are greater within groups than between groups. 
+
+# SIMPER analyses - determines which OTUs are driving the dissimilarity
+# First look between redox condition groups
+simper_AB_OxCond <- simper(AB_trans_trim, OxCond, permutations = 0)
+capture.output(simper_AB_OxCond, file = "StatResults/Simper_bac_full_OxCond.txt") # save results in a text file
+
+# Now look between Size fraction groups
+simper_AB_PAFL <- simper(AB_trans_trim, Size.Fraction, permutations = 0)
+capture.output(simper_AB_PAFL, file = "StatResults/Simper_bac_full_PAFL.txt")
+
+# Season not significant according to ANOSIM so don't need to check that with SIMPER
+
+
