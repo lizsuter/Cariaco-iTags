@@ -1,0 +1,52 @@
+# These commands were used for all statistical analyses
+# E Suter. Last updated Jan 31 2017
+# Only bacterial example is given. 
+
+# Import data. Count data have been transformed by Hellinger transformation
+AB_trans<-read.csv("AB_transformed.csv",header = T, sep = ","); # Bacteria table
+AA_trans<-read.csv("AA_transformed.csv",header = T, sep = ","); # Archaea table
+
+# Save data frames for later
+save.image(file = 'HellingerTransABAA_full.Rdata')
+
+# Next import standardized geochemical data and categorical data
+GeochemVar<-read.csv("GeochemVar.csv",header = T, sep = ",");
+CatVar<-read.csv("CategVar.csv",header = T, sep = ",");
+
+# Load vegan package
+library(vegan)
+# Version is vegan 2.3-2
+
+## NMDS
+NMDSbac_full=metaMDS(AB_trans_trim)
+save(NMDSbac_full, file="NMDSoutput_bac_full.Rdata")
+# Get stats
+capture.output(NMDSbac_full, file = "StatResults/NMDSbac_full.txt")
+# Text file contains stats related to NMDS, including the stress of the analysis
+
+# Plot NMDS, bacteria
+plot(NMDSbac_full, display = "sites", cex=1.5,  xlim=c(-2.1, 2.2), ylim=c(-2, 2),cex.lab = 1.5, cex.axis = 1.5); 
+with(CatVar, points(NMDSbac_full, display = "sites", pch = 19, cex=1.5 ))
+box(lwd=2)
+# then identify groups by redox condition
+ordispider(NMDSbac_full, OxCond, display="sites", label=TRUE, cex=1.5)
+# or size fraction
+ordispider(NMDSbac_full, Size.Fraction, display="sites", label=TRUE, cex =1.5)
+# or season
+ordispider(NMDSbac_full, Season, display="sites", label=TRUE, cex =1.5)
+# or overlay vectors of geochemical data. For example, O2 and sulfide
+bacfullEnvFitNMDSO2<- envfit(NMDSbac_full~O2, permutations = 9999)
+bacfullEnvFitNMDSH2S<- envfit(NMDSbac_full~H2S, permutations = 9999)
+par(lwd=2)
+plot(bacfullEnvFitNMDSO2, col = "black", cex=1.5)
+plot(bacfullEnvFitNMDSH2S, col = "black", cex=1.5)
+par(lwd=1) # need to reset par otherwise it will plot this thick in all future plots
+
+
+
+## Next calcululate the ANOSIM statistics and SIMPER analyses to look at between-group differences
+bac_dis <- vegdist(AB_trans_trim) # Bray curtis dissimilarity matrix
+
+anosim(bac_dis,Size.Fraction) # output is anosim statistics on dissimilarities between size fraction groups
+anosim(bac_dis,Season) # between season groups
+anosim(bac_dis,OxCond) # between redox condition groups
