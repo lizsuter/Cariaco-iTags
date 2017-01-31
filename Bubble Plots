@@ -1,0 +1,192 @@
+This script was used to plot relative abundances of different clades as bubble plots in Matlab.
+This example is for class-level organization of Bacteria.
+E Suter Jan 31 2017
+
+close all; clear all;
+load('AmpliconsBacteria.mat'); % This loads the OTU names (Bac_taxonomy) and matrices of relative abundance data with OTU in the 
+% y dimension and sample in the x dimension
+sample_label = {'C212 A','C212 B','C216 A','C216 B'};
+dep_label = {'O','O','O','A','A','E'};
+
+% Sum by class level taxonomy
+classes = unique(Bac_taxonomy(:,3)); classes = classes(2:end,:); % These are all unique class names
+classes_relabun=nan*ones(length(classes),length(dep_label),4); %this will be a matrix of relative abundances of all classes. Dimensions are classes, depth, cruise/ size fraction (C212PA, FL, C216PA, FL);
+for i = 1:length(classes);
+    z=ismember(Bac_taxonomy(:,3),classes(i));
+    for x = 1:length(dep_label);
+        classes_relabun(i,x,1)=sum(C212Abacmean(z,x));
+        classes_relabun(i,x,2)=sum(C212Bbacmean(z,x));
+        classes_relabun(i,x,3)=sum(C216Abacmean(z,x));
+        classes_relabun(i,x,4)=sum(C216Bbacmean(z,x));
+    end
+end
+
+% Pull out only those classes which occur at least 1% of the time in at
+% least one sample
+% And only retain groups with >1% abundance     
+clear i; clear x; clear z; clear y;
+topclasses = nan*ones(size(classes_relabun));
+[x1,y] = find(classes_relabun(:,:,1)>=0.01); % x and y are deimensions from phyla_relabun matrix but I don't care about y dim.
+[x2,y] = find(classes_relabun(:,:,2)>=0.01); 
+[x3,y] = find(classes_relabun(:,:,3)>=0.01); 
+[x4,y] = find(classes_relabun(:,:,4)>=0.01); 
+x = [x1; x2; x3; x4]; % concatenate
+topclasses_ind = unique(x); % gives 34 unique proteobac groups that have >1% abundance
+topclasses = classes(unique(x)); % these are all class names for which abundance is >=0.01 in at least one sample
+
+% Other problem is that the "uncultured bacteria" and "uncultured
+% organisms" in column 3 are a mix of different phyla. Need to gather all of uncultured, sort
+% by phyla they come from, and only present those that are >1%
+
+unculturedclasses_ind = strmatch('uncultured', Bac_taxonomy(:,3));
+
+% Grab phyla of these uncultured classes
+unculturedclasses_byphyla = unique(Bac_taxonomy(unculturedclasses_ind,2));
+unculturedclasses = nan*ones(length(unculturedclasses_byphyla),length(dep_label),4);
+
+for i = 1:length(unculturedclasses_byphyla);
+x = ismember(Bac_taxonomy(unculturedclasses_ind,2),unculturedclasses_byphyla(i));
+        unculturedclasses(i,:,1)=sum(C212Abacmean(unculturedclasses_ind(x),:));
+        unculturedclasses(i,:,2)=sum(C212Bbacmean(unculturedclasses_ind(x),:));
+        unculturedclasses(i,:,3)=sum(C216Abacmean(unculturedclasses_ind(x),:));
+        unculturedclasses(i,:,4)=sum(C216Bbacmean(unculturedclasses_ind(x),:));
+end
+% Pull out those with >1% in at least one sample
+clear i; clear x; clear z; clear y;
+[x1,y] = find(unculturedclasses(:,:,1)>=0.01); % x and y are dimensions from phyla_relabun matrix but I don't care about y dim.
+[x2,y] = find(unculturedclasses(:,:,2)>=0.01); 
+[x3,y] = find(unculturedclasses(:,:,3)>=0.01); 
+[x4,y] = find(unculturedclasses(:,:,4)>=0.01); 
+x = [x1; x2; x3; x4]; % concatenate
+topuncultclasses_ind = unique(x); % gives 3 unique uncultured classes groups that have >1% abundance
+topuncultclasses = unculturedclasses(unique(x),:,:); % these are all classes in which abundance is >=0.01 in at least one sample
+% Add these back to the abundance classes matrix to replace the
+% "uncultured" rows
+classes_relabun_top1P = [classes_relabun(topclasses_ind(1:31),:,:);topuncultclasses(:,:,:);classes_relabun(topclasses_ind(34),:,:)];
+classes_relabun_top1P_id = [topclasses(1:31);unculturedclasses_byphyla(topuncultclasses_ind);topclasses(34)];
+
+% Amend last row to be total of all bacteria not included in these top classes
+classes_relabun_top1P_id(36) = {'Other Bacteria'};
+for i = 1:length(dep_label);
+    for j = 1:length(sample_label);
+        classes_relabun_top1P(36,i,j) = sum(classes_relabun(:,i,j))-sum(classes_relabun_top1P(:,i,j));
+    end
+end
+
+% Now plot
+% C212 PA first
+x = 1:length(dep_label);
+y = 1:length(classes_relabun_top1P_id);
+H1 = [classes_relabun_top1P(sortid,:,1);classes_relabun_top1P(length(classes_relabun_top1P_id),:,1)]; 
+hf=figure;
+hs1=subplot(151);
+set(hs1, 'YDir', 'reverse');
+[Xbins, Ybins] = meshgrid(x, y);
+ind = H1(:) > 0;
+scatter(Xbins(ind), Ybins(ind),H1(ind).^(1/.9999)*5000, 'filled',...
+'MarkerEdgeColor','white',...
+'MarkerFaceColor',[0.4 0 0],...
+'LineWidth',1.5); 
+set(gca,'YTick',1:length(classes_relabun_top1P_id));
+    set(gca,'YTickLabel',[classes_relabun_top1P_id(sortid); classes_relabun_top1P_id(length(classes_relabun_top1P_id))]);
+    set(gca,'Ydir','reverse');
+    set(gca,'XTick',1:length(dep_label));
+    set(gca,'XTickLabel',dep_label);    
+    %xticklabel_rotate(1:6,45,dep_label,'Fontsize',14);
+    %title('Top Classes, May PA');
+    set(gca,'fontsize', 14); 
+    grid(hs1, 'on');
+    axis([x(1)-0.25, x(end)+0.25, y(1)-0.5, y(end)+0.5]);
+  
+% C212B
+x = 1:length(dep_label);
+y = 1:length(classes_relabun_top1P_id);
+H2 = [classes_relabun_top1P(sortid,:,2);classes_relabun_top1P(length(H),:,2)]; 
+hs2=subplot(152);
+set(hs2, 'YDir', 'reverse');
+[Xbins, Ybins] = meshgrid(x, y);
+ind = H2(:) > 0;
+scatter(Xbins(ind), Ybins(ind),H2(ind).^(1/.9999)*5000, 'filled',...
+'MarkerEdgeColor','white',...
+'MarkerFaceColor',[0.87843 0.16471 0.16471],...
+'LineWidth',1.5); 
+set(gca,'YTick',1:length(classes_relabun_top1P_id));
+    set(gca,'YTickLabel',[]); 
+    set(gca,'Ydir','reverse');
+    set(gca,'XTick',1:length(dep_label));
+    set(gca,'XTickLabel',dep_label);    
+    %xticklabel_rotate(1:6,45,dep_label,'Fontsize',14);
+    %title('Top Classes, May FL');
+    set(gca,'fontsize', 14); 
+    grid(hs2, 'on');
+    axis([x(1)-0.25, x(end)+0.25, y(1)-0.5, y(end)+0.5]);
+
+%C216A
+x = 1:length(dep_label);
+y = 1:length(classes_relabun_top1P_id);
+H3 = [classes_relabun_top1P(sortid,:,3);classes_relabun_top1P(length(H),:,3)]; 
+hs3=subplot(153);
+set(hs3, 'YDir', 'reverse');
+[Xbins, Ybins] = meshgrid(x, y);
+ind = H3(:) > 0;
+scatter(Xbins(ind), Ybins(ind),H3(ind).^(1/.9999)*5000, 'filled',...
+'MarkerEdgeColor','white',...
+'MarkerFaceColor',[0.4 0 0],...
+'LineWidth',1.5); 
+set(gca,'YTick',1:length(classes_relabun_top1P_id));
+    set(gca,'YTickLabel',[]); 
+    set(gca,'Ydir','reverse');
+    set(gca,'XTick',1:length(dep_label));
+    set(gca,'XTickLabel',dep_label);    
+    %xticklabel_rotate(1:6,45,dep_label,'Fontsize',14);
+    %title('Top Classes, Nov PA');
+    set(gca,'fontsize', 14); 
+    grid(hs3, 'on');
+    axis([x(1)-0.25, x(end)+0.25, y(1)-0.5, y(end)+0.5]);
+
+%C216B
+x = 1:length(dep_label);
+y = 1:length(classes_relabun_top1P_id);
+H4 = [classes_relabun_top1P(sortid,:,4);classes_relabun_top1P(length(H),:,4)]; 
+hs4=subplot(154);
+set(hs4, 'YDir', 'reverse');
+[Xbins, Ybins] = meshgrid(x, y);
+ind = H4(:) > 0;
+scatter(Xbins(ind), Ybins(ind),H4(ind).^(1/.9999)*5000, 'filled',...
+'MarkerEdgeColor','white',...
+'MarkerFaceColor',[0.87843 0.16471 0.16471],...
+'LineWidth',1.5); 
+set(gca,'YTick',1:length(classes_relabun_top1P_id));
+    set(gca,'YTickLabel',[]); 
+    set(gca,'Ydir','reverse');
+    set(gca,'XTick',1:length(dep_label));
+    set(gca,'XTickLabel',dep_label);    
+    %xticklabel_rotate(1:6,45,dep_label,'Fontsize',14);
+    %title('Top Classes, Nov FL');
+    set(gca,'fontsize', 14); 
+    grid(hs4, 'on');
+    axis([x(1)-0.25, x(end)+0.25, y(1)-0.5, y(end)+0.5]);
+
+% include scale bar figure in subplots so circle sizes match
+x = 1:length(dep_label);;
+y = 1:length(classes_relabun_top1P_id);
+H5 = zeros(size(H4));
+H5(4,3)= 0.01; H5(5,3)=0.05; H5(7,3) = 0.1; H5(10,3) = 0.25; H5(14,3) = 0.5; H5(19,3) = 0.75; % these are the areas of reference cirlces
+hs5=subplot(155);
+%set(hs5, 'YDir', 'reverse');
+[Xbins, Ybins] = meshgrid(x, y);
+ind = H5(:) > 0;
+scatter(Xbins(ind), Ybins(ind),H5(ind).^(1/.9999)*5000,'filled',...
+'MarkerEdgeColor','white',...
+'MarkerFaceColor',[0.31373     0.31373     0.31373],...
+'LineWidth',1.5);
+    %title('Scale Bar');
+    set(gca,'YTick',1:length(classes_relabun_top1P_id));
+    set(gca,'YTickLabel',[]); 
+    set(gca,'XTick',1:length(dep_label));
+    set(gca,'XTickLabel',[]); 
+    %grid(hs5, 'on');
+    axis([x(1)-0.25, x(end)+0.25, y(1)-0.5, y(end)+0.5]);
+
+
+
